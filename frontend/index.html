@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEISMO-GUARD | Real-Time Earthquake Monitoring Dashboard</title>
+
+    <!-- Leaflet CSS for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+    <!-- API Configuration -->
+    <script>
+        // Configure your backend API URL here when deploying
+        // Leave undefined to use auto-detection
+        window.SEISMO_API_URL = undefined; // e.g., 'https://your-backend.onrender.com/api'
+    </script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <h1>🌍 SEISMO-GUARD</h1>
+                <p class="tagline">AI-Powered Earthquake Risk Monitoring System</p>
+            </div>
+            <div class="status-indicators">
+                <div class="status-item">
+                    <span class="status-label">System Status:</span>
+                    <span class="status-value" id="systemStatus">
+                        <span class="status-dot active"></span> Active
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Last Update:</span>
+                    <span class="status-value" id="lastUpdate">Loading...</span>
+                </div>
+                <div class="status-item">
+                    <button class="refresh-btn" id="refreshBtn">
+                        <span class="refresh-icon">⟳</span> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <main class="dashboard-main">
+        <!-- Key Metrics Section -->
+        <section class="metrics-section">
+            <div class="metric-card">
+                <div class="metric-icon">📊</div>
+                <div class="metric-content">
+                    <h3 class="metric-label">Total Events (24h)</h3>
+                    <p class="metric-value" id="totalEvents">-</p>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">⚡</div>
+                <div class="metric-content">
+                    <h3 class="metric-label">Max Magnitude</h3>
+                    <p class="metric-value" id="maxMagnitude">-</p>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">📍</div>
+                <div class="metric-content">
+                    <h3 class="metric-label">Avg Depth (km)</h3>
+                    <p class="metric-value" id="avgDepth">-</p>
+                </div>
+            </div>
+
+            <div class="metric-card risk-card">
+                <div class="metric-icon">🚨</div>
+                <div class="metric-content">
+                    <h3 class="metric-label">Istanbul Risk Level</h3>
+                    <p class="metric-value risk-level" id="istanbulRisk">-</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content Grid -->
+        <div class="content-grid">
+            <!-- Left Column: Map -->
+            <section class="map-section">
+                <div class="section-header">
+                    <h2>🗺️ Real-Time Earthquake Map</h2>
+                    <div class="map-controls">
+                        <select id="regionFilter" class="control-select">
+                            <option value="all">All Regions</option>
+                            <option value="Istanbul">Istanbul</option>
+                            <option value="Marmara">Marmara</option>
+                            <option value="Aegean">Aegean</option>
+                            <option value="Eastern_Anatolia">Eastern Anatolia</option>
+                        </select>
+                        <select id="magnitudeFilter" class="control-select">
+                            <option value="0">All Magnitudes</option>
+                            <option value="2">M ≥ 2.0</option>
+                            <option value="3">M ≥ 3.0</option>
+                            <option value="4">M ≥ 4.0</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="earthquakeMap" class="map-container"></div>
+                <div class="map-legend">
+                    <div class="legend-item">
+                        <span class="legend-marker small"></span>
+                        <span>M < 3.0</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-marker medium"></span>
+                        <span>M 3.0-4.0</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-marker large"></span>
+                        <span>M 4.0-5.0</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-marker xlarge"></span>
+                        <span>M ≥ 5.0</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Charts and Info -->
+            <aside class="sidebar">
+                <!-- Risk Assessment Panel -->
+                <section class="risk-panel">
+                    <h2>⚠️ Risk Assessment</h2>
+                    <div id="riskAssessmentContent">
+                        <p class="loading-text">Loading risk assessment...</p>
+                    </div>
+                </section>
+
+                <!-- Magnitude Distribution Chart -->
+                <section class="chart-panel">
+                    <h2>📈 Magnitude Distribution</h2>
+                    <canvas id="magnitudeChart"></canvas>
+                </section>
+
+                <!-- Depth Distribution Chart -->
+                <section class="chart-panel">
+                    <h2>📉 Depth Distribution</h2>
+                    <canvas id="depthChart"></canvas>
+                </section>
+            </aside>
+        </div>
+
+        <!-- Bottom Section: Timeline and Recent Events -->
+        <div class="bottom-grid">
+            <!-- Timeline Chart -->
+            <section class="timeline-section">
+                <h2>⏱️ Seismic Activity Timeline (7 Days)</h2>
+                <canvas id="timelineChart"></canvas>
+            </section>
+
+            <!-- Recent Events Table -->
+            <section class="events-section">
+                <h2>📋 Recent Significant Events</h2>
+                <div class="events-table-container">
+                    <table class="events-table" id="recentEventsTable">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Magnitude</th>
+                                <th>Depth (km)</th>
+                                <th>Location</th>
+                                <th>Region</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventsTableBody">
+                            <tr>
+                                <td colspan="5" class="loading-text">Loading events...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- Pattern Detection Section -->
+        <section class="patterns-section">
+            <h2>🔍 Detected Seismic Patterns</h2>
+            <div id="patternsContent" class="patterns-grid">
+                <p class="loading-text">Analyzing patterns...</p>
+            </div>
+        </section>
+
+        <!-- Regional Analysis -->
+        <section class="regional-section">
+            <h2>🌐 Regional Analysis</h2>
+            <div id="regionalContent" class="regional-grid">
+                <p class="loading-text">Loading regional data...</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="dashboard-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Data Sources</h3>
+                <p>AFAD (Turkey Disaster Management) • EMSC (European-Mediterranean Seismological Centre)</p>
+            </div>
+            <div class="footer-section">
+                <h3>Important Notice</h3>
+                <p>⚠️ Istanbul is in a HIGH seismic hazard zone with >20% probability of damaging earthquake in next 50 years.
+                   Maintain preparedness at all times. This system provides risk assessments, NOT deterministic predictions.</p>
+            </div>
+            <div class="footer-section">
+                <p class="copyright">© 2025 SEISMO-GUARD • AI Earthquake Risk Monitoring System v1.0.0</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
